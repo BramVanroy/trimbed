@@ -1,0 +1,3 @@
+# Sidecar files
+
+::: trimbed.sidecar

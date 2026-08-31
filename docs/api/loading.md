@@ -1,0 +1,3 @@
+# Loading
+
+::: trimbed.loading

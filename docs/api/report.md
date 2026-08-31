@@ -1,0 +1,3 @@
+# Report
+
+::: trimbed.report
