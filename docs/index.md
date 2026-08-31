@@ -12,17 +12,15 @@ But more options are available!
 
 ## Installation
 
-!!! note
-    The first PyPI release is still pending: until a `vX.Y.Z` tag is published, install
-    from a checkout with the `uv sync` line below or from the Git URL.
-
 ```bash
-pip install trimbed                    # tokenizer trimming only
-pip install "trimbed[model]"           # + torch, for trimming embeddings
-pip install "trimbed[model,convert]"   # + sentencepiece/protobuf, for spiece-only tokenizers
+pip install trimbed                       # tokenizer trimming only
+pip install "trimbed[model]"              # + torch, for trimming embeddings
+pip install "trimbed[model,convert]"      # + sentencepiece/protobuf, for spiece-only tokenizers
 ```
 
-From a checkout, the same three tiers are `uv sync`, `uv sync --extra model` and
+Or preferably with `uv add`.
+
+From a git clone the above would be `uv sync`, `uv sync --extra model` and
 `uv sync --all-extras`.
 
 ## Quickstart
