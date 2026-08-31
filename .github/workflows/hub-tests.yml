@@ -1,0 +1,57 @@
+# The tests that reach the Hugging Face Hub, kept off the pull-request path on purpose: a
+# Hub outage or a several-gigabyte download must never be what blocks a merge. Run them
+# on a schedule and on demand instead.
+name: Hub tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays, 05:40 UTC
+    - cron: "40 5 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tokenizers:
+    name: Hub tokenizer trims
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      # --all-extras: the mT5 case needs trimbed[convert] to read a bare spiece.model.
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --group dev
+
+      - name: Run Hub tokenizer tests
+        run: make test-network
+
+  models:
+    name: Hub model trims
+    runs-on: ubuntu-latest
+    # Minutes per case, and every one of them downloads a real checkpoint. A failure here
+    # is worth seeing but is not a reason to call the run red.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --group dev
+
+      - name: Run Hub model tests
+        run: make test-slow

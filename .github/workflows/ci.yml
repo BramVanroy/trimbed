@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/ci.yml"
+      - "Makefile"
+      - "mkdocs.yml"
+      - "docs/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/ci.yml"
+      - "Makefile"
+      - "mkdocs.yml"
+      - "docs/**"
+
+# Cancel any in-progress run for the same branch/PR when a new push arrives.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Code quality
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 everywhere because hatch-vcs derives the version from the tags.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      # The hooks already cover ruff lint, ruff format and `uv lock --check`, so there is
+      # no separate lint step here. There is deliberately no type-checking step: type
+      # hints in this project are documentation, not a contract.
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+  # Validation only: builds the site into a throwaway directory and discards it. Nothing
+  # is published here -- docs.yml is the only workflow that touches gh-pages, and it only
+  # runs on a release. The point is to catch broken cross-references, dead anchors and
+  # missing nav entries on the pull request that introduces them rather than at release
+  # time.
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install docs dependencies
+        run: uv sync --locked --group docs
+
+      - name: Build docs (strict)
+        run: uv run mkdocs build --strict --site-dir "${RUNNER_TEMP}/site"
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Not 3.14: `datasets` pulls in `multiprocess`, which ships no cp314 wheels and
+        # fails to import there, and `datasets` is a hard runtime dependency.
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      # The offline suite: no Hub access, no real weights. See hub-tests.yml for those.
+      - name: Run tests
+        run: make test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: true
+          disable_search: true
+          disable_telem: true

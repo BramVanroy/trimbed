@@ -1,0 +1,13 @@
+coverage:
+  status:
+    # Total project coverage. 'auto' means the target is whatever the base branch already
+    # has, i.e. "coverage must not drop", with a little room so an unrelated refactor does
+    # not fail the run on rounding.
+    project:
+      default:
+        target: auto
+        threshold: 3%
+    # The separate status for the lines this pull request touched.
+    patch:
+      default:
+        target: 90%

@@ -1,0 +1,35 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  pypi-publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      # fetch-depth: 0 so hatch-vcs sees the tag and builds a released version rather
+      # than a development one.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build package
+        run: uv build
+
+      # Trusted publishing: the OIDC token above stands in for an API token.
+      - name: Publish to PyPI
+        run: uv publish
