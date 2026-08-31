@@ -41,6 +41,22 @@ class TestMissingDependency:
 
 
 class TestLoading:
+    @pytest.mark.parametrize(
+        ("message", "expected_extra_hint"),
+        [("No module named 'sentencepiece'", "sentencepiece"), ("cannot import protobuf", "protobuf")],
+    )
+    def test_a_conversion_without_its_dependencies_names_the_extra(self, monkeypatch, message, expected_extra_hint):
+        from trimbed.loading import load_tokenizer
+
+        def raise_import_error(cls, *args, **kwargs):
+            raise ImportError(message)
+
+        monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", classmethod(raise_import_error))
+        with pytest.raises(MissingDependencyError, match=r"trimbed\[convert\]") as caught:
+            load_tokenizer("some/model")
+
+        assert caught.value.package == expected_extra_hint
+
     def test_a_slow_tokenizer_is_refused_with_a_clear_reason(self, monkeypatch):
         from trimbed.loading import load_tokenizer
 
