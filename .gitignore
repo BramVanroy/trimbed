@@ -32,6 +32,12 @@ htmlcov/
 # uv's cache, relocated into the project directory by CI
 .uv-cache/
 
+# One venv per interpreter, written by `make test-matrix`
+.venvs/
+
+# mkdocs output; the published site lives on the gh-pages branch
+/site
+
 # Jupyter checkpoints
 .ipynb_checkpoints/
 
