@@ -9,15 +9,29 @@ description = "🛏️ Trim the vocabulary of a tokenizer (and optionally its mo
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICEN[CS]E*"]
-requires-python = ">=3.12"
+# Capped below 3.14: `datasets` pulls in `multiprocess`, which ships no cp314 wheels and
+# fails to import there. Lift the cap once that lands upstream.
+requires-python = ">=3.12,<3.14"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+    "Framework :: MkDocs",
+    "Framework :: Pytest",
+]
 dependencies = [
     "datasets>=5.0.1,<5.1",
+    "huggingface-hub>=1.25,<1.26",
+    "transformers>=5.14,<5.15",
+    "tokenizers>=0.22,<0.23",
+    "skeletoken>=0.6.1,<0.7",
+    "pydantic>=2.13,<3",
     "PyYAML>=6.0,<7",
-    "pydantic>=2,<3",
-    "huggingface-hub>=1.25.0,<2",
-    "transformers>=5.14,<6",
-    "tokenizers>=0.22,<0.24",
-    "skeletoken>=0.6.1,<0.7.0",
 ]
 
 # One command with a subcommand per module, so an install from PyPI gets the same command
@@ -26,21 +40,48 @@ dependencies = [
 [project.scripts]
 trimbed = "trimbed.cli.__main__:main"
 
+[project.urls]
+Homepage = "https://github.com/BramVanroy/trimbed"
+Documentation = "https://BramVanroy.github.io/trimbed"
+Repository = "https://github.com/BramVanroy/trimbed"
+Issues = "https://github.com/BramVanroy/trimbed/issues"
+
 [project.optional-dependencies]
-# Trimming the embedding table / lm_head of a model needs torch
-model = ["torch>=2.13,<3"]
+# Trimming the embedding table / lm_head of a model needs torch. Minor-capped for the same
+# reason as transformers: `trim_model` works against embedding and head internals.
+model = ["torch>=2.13,<2.14"]
 # Tokenizers shipped as a bare SentencePiece model (e.g. mT5's spiece.model) are
 # converted to the fast `tokenizers` format on load, which needs these.
-convert = ["sentencepiece>=0.2.2", "protobuf>=4"]
+convert = ["sentencepiece>=0.2.2,<0.3", "protobuf>=4,<8"]
 
 [dependency-groups]
+# Kept apart from `dev` so the CI docs job installs a handful of packages instead of torch.
+docs = [
+    "mkdocs-material>=9.7,<10",
+    "mike>=2.1.3,<3",
+    "mkdocstrings[python]>=1.0.4,<2",
+    # Named explicitly, and separately from the [python] extra above, because
+    # docs/overrides/python/material/ extends its `_base/` templates and overrides their
+    # `source` block. That layout is a property of this package's major version.
+    "mkdocstrings-python>=2.0.7,<3",
+    "mkdocs-autorefs>=1.4.4,<2",
+    # config.py and report.py document themselves through `Field(description=...)`.
+    # Without this extension griffe drops every pydantic field from the rendered page.
+    "griffe-pydantic>=1.3,<2",
+    # Only ever used to reflow the long signatures `separate_signature` puts on their own
+    # line. mkdocstrings would rather use ruff, but it reaches for it through
+    # `ruff.__main__`, which the ruff wheel stopped shipping.
+    "black>=25,<27",
+]
+
 dev = [
+    {include-group = "docs"},
     "pytest==9.1.1",
     "pre-commit==4.6.1",
     "ruff==0.16.1",
     "pytest-cov==7.1.0",
-    # in dev so the model-trimming tests actually run
-    "torch>=2.13,<3",
+    # in dev so the model-trimming tests actually run; same range as the `model` extra
+    "torch>=2.13,<2.14",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -95,12 +136,17 @@ known-first-party = ["trimbed"]
 "src/trimbed/backends/__init__.py" = ["E402"]
 # `spec` is part of the interface the subclasses implement, not an oversight.
 "src/trimbed/backends/base.py" = ["ARG002"]
+# MkDocs calls its hooks with a fixed signature; the arguments a hook does not read
+# still have to be declared.
+"docs/hooks.py" = ["ARG001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # -m excludes the Hub tests and the ones that download and run real weights; the torch
-# ones are part of the 100%.
-addopts = "-q --strict-markers -m 'not network and not slow' --cov=trimbed --cov-branch --cov-report=term-missing"
+# ones are part of the 100%. There is no --cov-fail-under: the gate lives in codecov.yml,
+# which compares against the base branch rather than against a number written down here.
+# coverage.xml is what CI hands Codecov.
+addopts = "-q --strict-markers --strict-config --import-mode=importlib -m 'not network and not slow' --cov=trimbed --cov-branch --cov-report=term-missing --cov-report=xml"
 markers = [
     "network: test reaches out to the Hugging Face Hub",
     "torch: test requires torch to be installed",

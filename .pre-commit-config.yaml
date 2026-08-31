@@ -7,11 +7,31 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
+      # Backs up .gitattributes: that pins what lands in the index, this catches CRLF in
+      # the working tree before it gets there.
+      - id: mixed-line-ending
+        args: [--fix=lf]
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
   - repo: local
     hooks:
+      # mkdocstrings renders docstrings as Markdown, so a Sphinx role survives as literal
+      # ":class:" text on the site. Use [`Name`][full.dotted.path].
+      - id: no-rst-roles
+        name: no Sphinx/RST roles in docstrings
+        language: pygrep
+        entry: ':(class|meth|func|mod|attr|obj|exc|data|ref):`'
+        types: [python]
+        files: ^src/trimbed/
+      # Griffe only documents an attribute that carries a real docstring, so a "#:"
+      # comment renders as nothing at all. Put a """docstring""" under the assignment.
+      - id: no-sphinx-attribute-comments
+        name: no Sphinx "#:" attribute comments
+        language: pygrep
+        entry: '^\s*#:'
+        types: [python]
+        files: ^src/trimbed/
       # Only the staged files are passed in, restricted to our own source dirs by
       # `files` below. Linting whole directories instead makes pre-commit's
       # stash-and-restore of unstaged edits conflict with the hooks' own auto-fixes.
@@ -20,7 +40,7 @@ repos:
         entry: uv run --frozen ruff check --fix --exit-non-zero-on-fix --force-exclude
         language: system
         types_or: [python, pyi]
-        files: ^(src/trimbed|tests|examples)/
+        files: ^(src/trimbed|tests|examples|docs)/
         # ruff parallelises internally, so hand it the whole file list in one process
         # rather than letting pre-commit fan it out across several.
         require_serial: true
@@ -28,8 +48,10 @@ repos:
         name: ruff format
         entry: uv run --frozen ruff format --force-exclude
         language: system
-        types_or: [python, pyi]
-        files: ^(src/trimbed|tests|examples)/
+        # ruff formats the Python blocks inside Markdown too, which is what keeps the
+        # examples in docs/ from drifting out of the project's own style.
+        types_or: [python, pyi, markdown]
+        files: ^(src/trimbed|tests|examples|docs)/
         require_serial: true
       # `uv` is already on PATH and every other hook runs under `uv run --frozen`, so a
       # pyproject.toml edit without a matching re-lock breaks all of them at once.
@@ -38,4 +60,17 @@ repos:
         entry: uv lock --check
         language: system
         files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      # Pre-push only, and only when Python actually changed: runs the offline suite
+      # against every interpreter in the CI matrix, so version-specific breakage is caught
+      # here instead of by a red job after the push. Requires
+      # `pre-commit install --hook-type pre-push` once per clone; `pre-commit run
+      # --all-files` (what CI runs) skips it, since that defaults to the pre-commit stage.
+      - id: test-matrix
+        name: pytest on every CI Python version
+        entry: make test-matrix
+        language: system
+        stages: [pre-push]
+        types: [python]
         pass_filenames: false
