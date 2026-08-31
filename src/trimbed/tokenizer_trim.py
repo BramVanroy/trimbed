@@ -21,8 +21,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Vocabulary files a fast tokenizer may write alongside tokenizer.json. They are
-# regenerated from the backend on save.
 LEGACY_VOCAB_FILES = (
     "vocab.json",
     "vocab.txt",
@@ -33,6 +31,11 @@ LEGACY_VOCAB_FILES = (
     "source.spm",
     "target.spm",
 )
+"""Vocabulary files a fast tokenizer may write alongside tokenizer.json.
+
+They are regenerated from the backend on save, so a stale copy left in the output
+directory would describe the untrimmed vocabulary.
+"""
 
 
 @dataclass

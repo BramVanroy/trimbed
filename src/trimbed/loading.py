@@ -104,9 +104,10 @@ def resolve_model_class(
         are factories rather than `PreTrainedModel` subclasses.
 
     Raises:
-        ValueError: If `EmbeddingTrimConfig.auto_class` names something transformers
-            does not export, e.g. a typo like `"AutoModelForCasualLM"`, although
-            perhaps it would not be bad if we'd have some more casual lm models. :-)
+        ValueError: If [`EmbeddingTrimConfig.auto_class`][trimbed.config.EmbeddingTrimConfig.auto_class]
+            names something transformers does not export, e.g. a typo like
+            `"AutoModelForCasualLM"`, although perhaps it would not be bad if we'd have
+            some more casual lm models. :-)
     """
     requested = config.auto_class if config is not None else None
     if requested is not None:

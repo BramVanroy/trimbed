@@ -143,9 +143,9 @@ class TrimPipeline:
         text the run was told to keep encodable is the one worth proving it kept, and it
         is the only thing to verify against for a trim driven by must-keep rules alone.
         Putting it first also puts it inside the much smaller sample the model comparison
-        takes, which is the front `verify_model_samples` of this same list. `TrimConfig`
-        caps `verify_model_samples` at `verify_samples` so that sample is one the corpus
-        can actually supply.
+        takes, which is the front `verify_model_samples` of this same list.
+        [`TrimConfig`][trimbed.config.TrimConfig] caps `verify_model_samples` at
+        `verify_samples` so that sample is one the corpus can actually supply.
 
         Args:
             counts: Corpus statistics, or `None` when no corpus was configured.

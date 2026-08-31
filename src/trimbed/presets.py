@@ -49,7 +49,8 @@ def register_preset(name: str, always_kept: bool = False) -> Callable[[PresetFn]
 
     Args:
         name: The name users will write in `selection.keep_presets`, e.g. `"digits"`.
-        always_kept: Whether the preset resolves to tokens that `TokenizerSpec.structural_ids`
+        always_kept: Whether the preset resolves to tokens that
+            [`TokenizerSpec.structural_ids`][trimbed.spec.TokenizerSpec.structural_ids]
             already protects, so the trim keeps them whether or not the preset is named.
             True for `"special_tokens"` and the like.
 
@@ -237,8 +238,9 @@ _ASCII_PRINTABLE = frozenset(string.printable)
 def _structural(spec: TokenizerSpec) -> set[str]:
     """Everything the trim keeps anyway: added tokens, post-processor tokens, unk, byte alphabet.
 
-    This resolves to `TokenizerSpec.structural_ids`, the very set the selector protects, so
-    it is the honest way to say "keep the bare minimum" for a run that has no corpus.
+    This resolves to [`TokenizerSpec.structural_ids`][trimbed.spec.TokenizerSpec.structural_ids],
+    the very set the selector protects, so it is the honest way to say "keep the bare
+    minimum" for a run that has no corpus.
     """
     return set(spec.structural_tokens)
 

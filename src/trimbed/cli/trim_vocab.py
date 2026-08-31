@@ -1,12 +1,13 @@
 """Trim a tokenizer's vocabulary down to a useful subset, and optionally its model with it.
 
-The run is described by a YAML config (see `configs/`). Three layers stack, later winning
-over earlier: the YAML file, the typed flags below, and the trailing `key=value`
-positionals. The typed flags cover the knobs worth tuning between runs, and the
-positionals reach every remaining field without needing a flag for each one.
+The run is described by a YAML config, documented field by field in the configuration
+guide. Three layers stack, later winning over earlier: the YAML file, the typed flags
+below, and the trailing `key=value` positionals. The typed flags cover the knobs worth
+tuning between runs, and the positionals reach every remaining field without needing a
+flag for each one.
 
-    trimbed trim --config configs/f2llm_dutch.yaml
-    trimbed trim --config configs/f2llm_dutch.yaml --dry-run \
+    trimbed trim --config my_config.yaml
+    trimbed trim --config my_config.yaml --dry-run \
         selection.top_k=30000 corpus.batch_size=2000
 
 A config is not required: `--model` plus must-keep rules is enough to trim without a
@@ -49,10 +50,11 @@ def run(
 ) -> None:
     """Resolve the configuration, run the trimming pipeline and print its report.
 
-    `with_overrides` drops `None` values, so an argument that was not supplied leaves the
-    config alone. The boolean flags therefore map to their meaningful value or to `None`,
-    never to the config default. That is why a flag turning something off is spelled
-    `--no-...` and one turning something on is not.
+    [`TrimConfig.with_overrides`][trimbed.config.TrimConfig.with_overrides] drops `None`
+    values, so an argument that was not supplied leaves the config alone. The boolean
+    flags therefore map to their meaningful value or to `None`, never to the config
+    default. That is why a flag turning something off is spelled `--no-...` and one
+    turning something on is not.
 
     Args:
         config: Path to a YAML configuration file.

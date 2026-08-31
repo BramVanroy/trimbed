@@ -281,7 +281,7 @@ class TrimConfig(_StrictBase):
         """Load a configuration from a YAML file.
 
         Args:
-            path: Path to the YAML document, e.g. `"configs/f2llm_dutch.yaml"`.
+            path: Path to the YAML document, e.g. `"my_config.yaml"`.
 
         Returns:
             The validated configuration.
@@ -336,8 +336,9 @@ def load_config(config_path: str | Path | None, model: str | None = None) -> Tri
 
     The `trimbed` commands all accept `--config` and `--model`, and this is the shared
     resolution of the two. Overrides are deliberately not applied here, so a caller can
-    merge flag-derived and `key=value` overrides in one `TrimConfig.with_overrides`
-    call with a single precedence rule.
+    merge flag-derived and `key=value` overrides in one
+    [`TrimConfig.with_overrides`][trimbed.config.TrimConfig.with_overrides] call with a
+    single precedence rule.
 
     Args:
         config_path: Path to a YAML document, or `None`.
@@ -364,14 +365,16 @@ def parse_overrides(overrides: Sequence[str]) -> dict[str, Any]:
 
     Values go through `yaml.safe_load`, so `5000` becomes an int, `false` a bool and
     `[a, b]` a list, while a bare word stays a string. `null` (or an empty one) resolves to
-    `None`, which `TrimConfig.with_overrides` skips: fields cannot be unset from the command line.
+    `None`, which [`TrimConfig.with_overrides`][trimbed.config.TrimConfig.with_overrides] skips:
+    fields cannot be unset from the command line.
 
     Args:
         overrides: Strings of the form `key.path=value`, e.g.
             `["selection.top_k=5000", "trim_model=false", "corpus.datasets.0.max_samples=1000"]`.
 
     Returns:
-        A mapping suitable for `TrimConfig.with_overrides`, e.g.
+        A mapping suitable for
+        [`TrimConfig.with_overrides`][trimbed.config.TrimConfig.with_overrides], e.g.
         `{"selection.top_k": 5000, "trim_model": False}`.
 
     Raises:

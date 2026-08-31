@@ -59,7 +59,8 @@ class VocabBackend(ABC):
         Returns:
             A mapping of token id to the ids it directly depends on. Empty here, since
             BPE is the only family that builds tokens out of other tokens. See
-            `BpeBackend.dependencies` for how it fills this in.
+            [`BpeBackend.dependencies`][trimbed.backends.bpe.BpeBackend.dependencies] for
+            how it fills this in.
         """
         return {}
 

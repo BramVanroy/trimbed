@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 MAX_REPORTED_FAILURES = 5
+"""How many differing samples a verification report quotes before it stops collecting."""
 
 # Covers both a `BatchEncoding` straight from a tokenizer and the plain dict
 type TensorInputs = Mapping[str, torch.Tensor]

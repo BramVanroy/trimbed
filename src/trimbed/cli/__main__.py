@@ -1,7 +1,7 @@
 """The main `trimbed` command.
 
     trimbed inspect --model codefuse-ai/F2LLM-v2-160M
-    trimbed trim --config configs/f2llm_dutch.yaml --dry-run selection.top_k=30000
+    trimbed trim --config my_config.yaml --dry-run selection.top_k=30000
     trimbed presets
 
 Each subcommand owns its own arguments, in `add_arguments`, next to the `run` they feed.

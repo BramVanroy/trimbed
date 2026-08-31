@@ -4,8 +4,8 @@ Counting is the expensive part of a trimming run and it does not depend on the s
 policy, so do it once here and point `corpus.counts_cache` at the output to reuse it
 across selection experiments.
 
-    trimbed count --config configs/f2llm_dutch.yaml -o counts.json
-    trimbed count --config configs/f2llm_dutch.yaml -o counts.json \
+    trimbed count --config my_config.yaml -o counts.json
+    trimbed count --config my_config.yaml -o counts.json \
         corpus.batch_size=4000 corpus.num_proc=8
 
 Only the corpus half of the config matters here. The selection and embedding sections are

@@ -17,7 +17,7 @@ def register_backend[BackendT: type[VocabBackend]](cls: BackendT) -> BackendT:
     """Register a backend adapter under its declared `model_type`.
 
     Args:
-        cls: A concrete `VocabBackend` subclass.
+        cls: A concrete [`VocabBackend`][trimbed.backends.base.VocabBackend] subclass.
 
     Returns:
         The class unchanged, so this can be used as a decorator.
@@ -42,7 +42,7 @@ def get_backend(model_type: str) -> VocabBackend:
             or `"WordPiece"` for google-bert/bert-base-cased.
 
     Returns:
-        The registered adapter instance, e.g. a `BpeBackend`.
+        The registered adapter instance, e.g. a [`BpeBackend`][trimbed.backends.bpe.BpeBackend].
 
     Raises:
         KeyError: If no adapter handles that model type.

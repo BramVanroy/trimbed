@@ -141,8 +141,9 @@ class CorpusCounter:
     def count(self) -> CorpusCounts:
         """Count token occurrences across every configured dataset.
 
-        Reads from `CorpusConfig.counts_cache` when that file exists, and writes to it
-        otherwise, so an expensive pass can be reused across trimming runs.
+        Reads from [`CorpusConfig.counts_cache`][trimbed.config.CorpusConfig.counts_cache]
+        when that file exists, and writes to it otherwise, so an expensive pass can be
+        reused across trimming runs.
 
         Returns:
             The accumulated statistics.
@@ -202,8 +203,9 @@ class CorpusCounter:
                 `name="nld_Latn"`, `split="train"`.
 
         Yields:
-            Lists of text strings of at most `CorpusConfig.batch_size` entries, where
-            only the last one is usually shorter.
+            Lists of text strings of at most
+            [`CorpusConfig.batch_size`][trimbed.config.CorpusConfig.batch_size] entries,
+            where only the last one is usually shorter.
 
         Raises:
             KeyError: If the configured text column is absent, e.g. the default `"text"`

@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Files copied from the source repository by default
 DEFAULT_SIDECAR_PATTERNS: tuple[str, ...] = (
     "modules.json",
     "config_sentence_transformers.json",
@@ -30,6 +29,7 @@ DEFAULT_SIDECAR_PATTERNS: tuple[str, ...] = (
     # 1_Pooling/, 2_Dense/, 3_Normalize/ ... the numbered sentence-transformers modules.
     "[0-9]_*/*",
 )
+"""Files copied from the source repository when `sidecar_patterns` says nothing else."""
 
 
 def _list_source_files(source: str, revision: str | None) -> list[str]:

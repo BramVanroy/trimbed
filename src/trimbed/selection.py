@@ -21,13 +21,18 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 STRUCTURAL = "structural"
+"""Provenance label for a token that was never eligible for removal."""
+
 CORPUS = "corpus"
+"""Provenance label for a token the corpus frequency ranking kept."""
+
 DEPENDENCY = "dependency"
+"""Provenance label for a token another kept token is built out of."""
 
 
 @dataclass
 class Selection:
-    """The outcome of applying a `SelectionConfig`.
+    """The outcome of applying a [`SelectionConfig`][trimbed.config.SelectionConfig].
 
     Attributes:
         kept_ids: Token ids that survive, as a set.
@@ -250,8 +255,9 @@ def _apply_cap(
 
     Args:
         selection: The selection to shrink, updated in place with provenance info. Its
-            `kept_ids` must already be closed over `dependencies`, which `select_tokens`
-            guarantees, or the bookkeeping below counts tokens that were never there.
+            `kept_ids` must already be closed over `dependencies`, which
+            [`select_tokens`][trimbed.selection.select_tokens] guarantees, or the
+            bookkeeping below counts tokens that were never there.
         counts: Corpus statistics used to rank droppable tokens. This may be `None`, in
             which case every droppable token ranks at frequency zero and the id order
             decides, which only makes sense in tests.

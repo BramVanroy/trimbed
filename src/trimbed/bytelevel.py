@@ -31,7 +31,10 @@ def bytes_to_unicode() -> dict[int, str]:
 
 @cache
 def unicode_to_bytes() -> dict[str, int]:
-    """Return the inverse of `bytes_to_unicode`, e.g. `"Ġ" -> 32` and `"Ċ" -> 10`."""
+    """Return the inverse of [`bytes_to_unicode`][trimbed.bytelevel.bytes_to_unicode].
+
+    E.g. `"Ġ" -> 32` and `"Ċ" -> 10`.
+    """
     return {char: byte for byte, char in bytes_to_unicode().items()}
 
 

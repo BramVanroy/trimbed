@@ -17,9 +17,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Config attributes that hold a single token id and must follow the remap. Which of them
-# a checkpoint sets varies: Qwen3 has only eos_token_id, T5 adds decoder_start_token_id
-# and pad_token_id, BERT sets pad_token_id only.
 TOKEN_ID_ATTRIBUTES = (
     "bos_token_id",
     "eos_token_id",
@@ -32,6 +29,11 @@ TOKEN_ID_ATTRIBUTES = (
     "forced_bos_token_id",
     "forced_eos_token_id",
 )
+"""Config attributes holding a single token id that must follow the remap.
+
+Which of them a checkpoint sets varies: Qwen3 has only `eos_token_id`, T5 adds
+`decoder_start_token_id` and `pad_token_id`, BERT sets `pad_token_id` only.
+"""
 
 
 def _remap_config_token_ids(config: PreTrainedConfig | GenerationConfig, remap: IdRemap, label: str) -> None:

@@ -6,7 +6,7 @@ structural and never removed), whether it ships a chat template, and whether a b
 registered for the family at all.
 
     trimbed inspect --model codefuse-ai/F2LLM-v2-160M
-    trimbed inspect --config configs/f2llm_dutch.yaml
+    trimbed inspect --config my_config.yaml
 
 Nothing is loaded beyond the tokenizer and nothing is written. The model weights are never
 touched.

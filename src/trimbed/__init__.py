@@ -9,6 +9,8 @@ Typical use:
 
 from __future__ import annotations
 
+from importlib.metadata import version
+
 from trimbed.backends import VocabBackend, get_backend, register_backend, supported_model_types
 from trimbed.config import (
     CorpusConfig,
@@ -32,6 +34,8 @@ from trimbed.spec import TokenizerSpec
 from trimbed.tokenizer_trim import TrimmedTokenizer, trim_tokenizer
 from trimbed.verify import verify_model, verify_tokenizer
 
+
+__version__ = version("trimbed")
 
 __all__ = [
     "DEFAULT_SIDECAR_PATTERNS",

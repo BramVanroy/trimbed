@@ -29,20 +29,27 @@ if TYPE_CHECKING:
 
     from trimbed.backends.base import VocabBackend
 
-# `{{ expression }}`, `{% statement %}` and `{# comment #}`: everything a Jinja
-# template evaluates rather than outputs literally.
-# `re.DOTALL` makes `.` match newlines
 JINJA_CONSTRUCT = re.compile(r"\{[{%#].*?[}%#]\}", re.DOTALL)
+"""`{{ expression }}`, `{% statement %}` and `{# comment #}`.
 
-# A quoted string inside such a construct. Role names reach the output through a
-# comparison (`message['role'] == 'user'`) rather than as literal text, so they only
-# show up here.
+Everything a Jinja template evaluates rather than outputs literally. `re.DOTALL` makes
+`.` match newlines.
+"""
+
 QUOTED_STRING = re.compile(r"'([^']*)'|\"([^\"]*)\"")
+"""A quoted string inside a Jinja construct.
 
-# A ChatML-style template writes `{{ message['role'] }}` without being explicit
-# about which roles are expected. So, as a precaution, we include the standard ones
-# in the literals we keep, even if they are not mentioned anywhere in the template.
+Role names reach the output through a comparison (`message['role'] == 'user'`) rather
+than as literal text, so they only show up here.
+"""
+
 CHAT_ROLES = ("system", "user", "assistant", "tool", "function", "developer")
+"""Roles a ChatML-style template substitutes from the message without ever naming.
+
+Such a template writes `{{ message['role'] }}` without being explicit about which roles
+are expected, so as a precaution the standard ones are kept even when the template does
+not mention them anywhere.
+"""
 
 
 def _join_chat_templates(template: str | dict[str, str] | None) -> str | None:
@@ -310,7 +317,7 @@ class TokenizerSpec:
 
         Quoted strings inside the markup are kept too, since a role name
         often reaches the output through `message['role'] == 'user'`, and the standard
-        role names are added outright (see `CHAT_ROLES`).
+        role names are added outright (see [`CHAT_ROLES`][trimbed.spec.CHAT_ROLES]).
 
         Returns:
             The literals, newline-separated, or an empty string without a template. For

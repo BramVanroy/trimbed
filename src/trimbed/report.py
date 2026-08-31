@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 REPORT_FILENAME = "trim_report.json"
+"""Name of the serialised report a run writes into its output directory."""
+
 CONFIG_FILENAME = "_trimbed_config.yaml"
+"""Name of the fully resolved configuration a run writes alongside the report."""
 
 
 class _Base(BaseModel):
