@@ -1,0 +1,109 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trimbed"
+dynamic = ["version"]
+description = "🛏️ Trim the vocabulary of a tokenizer (and optionally its model) down to the subset you actually need."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICEN[CS]E*"]
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=5.0.1,<5.1",
+    "PyYAML>=6.0,<7",
+    "pydantic>=2,<3",
+    "huggingface-hub>=1.25.0,<2",
+    "transformers>=5.14,<6",
+    "tokenizers>=0.22,<0.24",
+    "skeletoken>=0.6.1,<0.7.0",
+]
+
+# One command with a subcommand per module, so an install from PyPI gets the same command
+# surface as a checkout. `trimbed.cli.__main__` is the router; the subcommands live in
+# their own modules alongside it.
+[project.scripts]
+trimbed = "trimbed.cli.__main__:main"
+
+[project.optional-dependencies]
+# Trimming the embedding table / lm_head of a model needs torch
+model = ["torch>=2.13,<3"]
+# Tokenizers shipped as a bare SentencePiece model (e.g. mT5's spiece.model) are
+# converted to the fast `tokenizers` format on load, which needs these.
+convert = ["sentencepiece>=0.2.2", "protobuf>=4"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pre-commit==4.6.1",
+    "ruff==0.16.1",
+    "pytest-cov==7.1.0",
+    # in dev so the model-trimming tests actually run
+    "torch>=2.13,<3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trimbed"]
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+    "D",    # pydocstyle
+    "PTH",  # flake8-use-pathlib
+    "TID",  # flake8-tidy-imports
+    "ARG",  # flake8-unused-arguments
+    "T10",  # flake8-debugger
+]
+ignore = [
+    "D104",  # missing docstring in public package
+    "D107",  # missing docstring in __init__ (documented on the class)
+    "D203",  # incompatible with D211
+    "D213",  # incompatible with D212
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+known-first-party = ["trimbed"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ARG"]
+# The adapter imports are what populate the registry, so they have to follow it.
+"src/trimbed/backends/__init__.py" = ["E402"]
+# `spec` is part of the interface the subclasses implement, not an oversight.
+"src/trimbed/backends/base.py" = ["ARG002"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -m excludes the Hub tests and the ones that download and run real weights; the torch
+# ones are part of the 100%.
+addopts = "-q --strict-markers -m 'not network and not slow' --cov=trimbed --cov-branch --cov-report=term-missing"
+markers = [
+    "network: test reaches out to the Hugging Face Hub",
+    "torch: test requires torch to be installed",
+    "slow: test downloads a real checkpoint and runs a forward pass over it",
+]
+filterwarnings = ["ignore::DeprecationWarning"]

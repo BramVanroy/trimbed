@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      # Only the staged files are passed in, restricted to our own source dirs by
+      # `files` below. Linting whole directories instead makes pre-commit's
+      # stash-and-restore of unstaged edits conflict with the hooks' own auto-fixes.
+      - id: ruff-lint
+        name: ruff lint
+        entry: uv run --frozen ruff check --fix --exit-non-zero-on-fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        files: ^(src/trimbed|tests|examples)/
+        # ruff parallelises internally, so hand it the whole file list in one process
+        # rather than letting pre-commit fan it out across several.
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        files: ^(src/trimbed|tests|examples)/
+        require_serial: true
+      # `uv` is already on PATH and every other hook runs under `uv run --frozen`, so a
+      # pyproject.toml edit without a matching re-lock breaks all of them at once.
+      - id: uv-lock-check
+        name: uv lock check
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

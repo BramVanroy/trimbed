@@ -1,0 +1,71 @@
+.ruff_cache/
+papers/
+data/
+configs/
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+# without slash because we are using a sym-link as the venv
+# lives on scratch
+.venv
+
+# Build / packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+report.xml
+htmlcov/
+
+# uv's cache, relocated into the project directory by CI
+.uv-cache/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Training outputs and checkpoints
+runs/
+checkpoints/
+
+# Model and large binary artifacts
+*.pt
+*.bin
+*.safetensors
+
+# System/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Downloaded / derived data
+data/dev_samples/
+
+# Local planning notes
+plan.md
+
+# Claude Code local configuration
+.claude/
+CLAUDE.md
+.agents/
+
+# upstream bug reports
+bugs/
+
+# Trimmed artefacts (the default output_dir in README/examples)
+trimmed/
