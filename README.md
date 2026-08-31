@@ -103,3 +103,7 @@ rules alone, trimming over a corpus with the model, and registering your own pre
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: `make style`, `make test` and
 `make build-docs` before you push.
+
+## Acknowledegments
+
+We rely heavily on the internals of [`skeletoken`](https://github.com/stephantul/skeletoken/) to map out tokenizers to a standardized Pydantic format.
