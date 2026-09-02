@@ -4,7 +4,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from trimbed.config import SelectionConfig, TrimConfig, load_config, parse_overrides
+from trimbed.config import DatasetSpec, SelectionConfig, TrimConfig, load_config, parse_overrides
 
 
 MINIMAL = {"model": "some/model", "selection": {"keep_presets": ["digits"]}}
@@ -170,3 +170,56 @@ def test_texts_to_keep_are_a_selection_source():
 
     assert config.selection.has_explicit_sources
     assert config.selection.keep_chat_template is True
+
+
+def test_a_data_file_as_a_dataset_path_points_at_data_files(tmp_path):
+    corpus = tmp_path / "corpus.jsonl"
+    corpus.write_text('{"text": "hi"}', encoding="utf-8")
+    with pytest.raises(ValidationError, match="data_files"):
+        TrimConfig.model_validate(
+            MINIMAL | {"corpus": {"datasets": [{"path": str(corpus)}]}, "selection": {"min_count": 1}}
+        )
+
+
+@pytest.mark.parametrize("conflicting", [{"name": "nld"}, {"revision": "abc"}, {"data_dir": "d"}, {"data_files": "f"}])
+def test_load_from_disk_takes_nothing_that_resolves_a_dataset(conflicting):
+    with pytest.raises(ValidationError, match="load_from_disk"):
+        DatasetSpec.model_validate({"path": "saved", "load_from_disk": True} | conflicting)
+
+
+def test_load_from_disk_rejects_streaming_but_turns_it_off_itself():
+    with pytest.raises(ValidationError, match="already built"):
+        DatasetSpec.model_validate({"path": "saved", "load_from_disk": True, "streaming": True})
+    assert DatasetSpec.model_validate({"path": "saved", "load_from_disk": True}).streaming is False
+
+
+def test_a_local_model_path_that_is_not_a_directory_is_rejected(tmp_path):
+    checkpoint = tmp_path / "tokenizer.json"
+    checkpoint.write_text("{}", encoding="utf-8")
+    for model in ["./no-such-checkpoint", str(checkpoint)]:
+        with pytest.raises(ValidationError, match="looks like a local path"):
+            TrimConfig.model_validate(MINIMAL | {"model": model})
+
+
+def test_a_revision_next_to_a_local_model_is_rejected(tmp_path):
+    with pytest.raises(ValidationError, match="cannot be resolved"):
+        TrimConfig.model_validate(MINIMAL | {"model": str(tmp_path), "revision": "abc"})
+
+
+def test_a_leading_tilde_is_expanded_wherever_a_path_is_configured():
+    config = TrimConfig.model_validate(
+        MINIMAL
+        | {
+            "output_dir": "~/trimmed",
+            "corpus": {"datasets": [{"path": "~/data", "data_dir": "~/data"}], "counts_cache": "~/counts.json"},
+            "selection": {"keep_token_files": ["~/tokens.txt"], "min_count": 1},
+        }
+    )
+    home = Path.home()
+    assert config.output_dir == home / "trimmed"
+    assert config.corpus.counts_cache == home / "counts.json"
+    assert config.selection.keep_token_files == [home / "tokens.txt"]
+    assert config.corpus.datasets[0].path == str(home / "data")
+    assert config.corpus.datasets[0].data_dir == str(home / "data")
+    # A Hub id has no business being expanded, and must survive verbatim.
+    assert config.model == "some/model"

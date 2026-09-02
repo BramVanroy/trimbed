@@ -4,12 +4,39 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from trimbed.sidecar import DEFAULT_SIDECAR_PATTERNS
+
+
+def _expand_home(path: str | Path) -> str | Path:
+    """Resolve a leading `~` against the home directory, keeping the type it came in as.
+
+    A shell expands `~` before a path ever reaches us, but a path written in a YAML file
+    does not go through a shell, and neither `pathlib` nor `from_pretrained` expands it.
+    Without this, `output_dir: ~/trimmed` creates a directory literally named `~`.
+
+    Args:
+        path: A configured path, or a Hub id that only looks like one.
+
+    Returns:
+        The expanded path, e.g. `/home/me/trimmed` for `~/trimmed`. Anything not starting
+        with `~` is handed back untouched, so a Hub id survives verbatim.
+    """
+    if not str(path).startswith("~"):
+        return path
+    expanded = Path(path).expanduser()
+    return str(expanded) if isinstance(path, str) else expanded
+
+
+type LocalPath = Annotated[Path, AfterValidator(_expand_home)]
+"""A filesystem path from a config file, with a leading `~` expanded."""
+
+type HubOrLocalPath = Annotated[str, AfterValidator(_expand_home)]
+"""A Hub id or a filesystem path, kept as a string because only the caller can tell which."""
 
 
 def _override_key(container: object, segment: str, dotted: str) -> str | int:
@@ -49,12 +76,36 @@ class _StrictBase(BaseModel):
 
 
 class DatasetSpec(_StrictBase):
-    """Hugging Face dataset to derive token frequencies from."""
+    """Dataset to derive token frequencies from, on the Hub or on disk.
 
-    path: str = Field(description="Hub dataset id or local path, e.g. 'epfml/FineWeb2-HQ'.")
+    `path` is what `datasets.load_dataset` takes first, so it is a Hub dataset id
+    (`epfml/FineWeb2-HQ`), a loader name (`json`, `csv`, `parquet`, `text`) paired with
+    `data_dir` or `data_files`, or a directory of data files to infer a loader from. A
+    directory written by `save_to_disk` is the one thing `load_dataset` cannot read, so
+    that one is spelled `load_from_disk: true`.
+    """
+
+    path: HubOrLocalPath = Field(
+        description="Hub dataset id, a loader name or a local directory, e.g. 'epfml/FineWeb2-HQ',"
+        " 'json' or './data/corpus'."
+    )
     name: str | None = Field(default=None, description="Dataset configuration name, e.g. 'nld_Latn'.")
     split: str = Field(default="train", description="Split expression, e.g. 'train' or even 'train[:1%]'.")
     text_column: str = Field(default="text", description="Column holding the raw text, e.g. 'text' or 'content'.")
+    data_dir: HubOrLocalPath | None = Field(
+        default=None,
+        description="Directory the loader named by 'path' reads its files from, e.g. './data/dutch'.",
+    )
+    data_files: str | list[str] | dict[str, str | list[str]] | None = Field(
+        default=None,
+        description="Files the loader named by 'path' reads, as one path, a list of paths or globs, or a"
+        " mapping of split name to either, e.g. './data/train-*.jsonl'.",
+    )
+    load_from_disk: bool = Field(
+        default=False,
+        description="Read 'path' with `datasets.load_from_disk`, for a directory written by `save_to_disk`."
+        " Such a dataset is already built, so it is never streamed.",
+    )
     streaming: bool = Field(default=True, description="Stream instead of downloading the whole split.")
     max_samples: int | None = Field(default=None, ge=1, description="Stop after this many examples, e.g. 200000.")
     revision: str | None = Field(default=None, description="Dataset revision to pin. Recommended for reproducibility.")
@@ -65,6 +116,29 @@ class DatasetSpec(_StrictBase):
         " in-domain corpus weigh as much as twice its size against a large generic one.",
     )
 
+    @model_validator(mode="after")
+    def _reject_sources_datasets_cannot_read(self) -> Self:
+        """Reject the two ways a local corpus is spelled wrong, and settle `streaming`."""
+        if self.load_from_disk:
+            conflicting = [
+                field for field in ("name", "revision", "data_dir", "data_files") if getattr(self, field) is not None
+            ]
+            if conflicting:
+                raise ValueError(
+                    f"{', '.join(conflicting)} cannot be combined with 'load_from_disk': a directory written by"
+                    " `save_to_disk` holds one dataset that is already built, with no configuration to pick,"
+                    " no revision to resolve and no files left to point at"
+                )
+            if self.streaming and "streaming" in self.model_fields_set:
+                raise ValueError("'streaming' cannot be combined with 'load_from_disk': the dataset is already built")
+            self.streaming = False
+        elif Path(self.path).is_file():
+            raise ValueError(
+                f"path {self.path!r} is a file, and `load_dataset` reads a Hub id, a loader name or a directory."
+                f" Name the loader in 'path' and the file in 'data_files': path: json, data_files: {self.path}"
+            )
+        return self
+
 
 class CorpusConfig(_StrictBase):
     """How the corpus, containing one or more datasets, is read and counted."""
@@ -72,7 +146,7 @@ class CorpusConfig(_StrictBase):
     datasets: list[DatasetSpec] = Field(default_factory=list, description="Datasets to count tokens over.")
     batch_size: int = Field(default=1000, ge=1, description="Examples tokenized per batch.")
     num_proc: int | None = Field(default=None, ge=1, description="Worker processes (non-streaming datasets only).")
-    counts_cache: Path | None = Field(
+    counts_cache: LocalPath | None = Field(
         default=None,
         description="Read counts from this JSON file if it exists, otherwise write them there, e.g. 'counts.json'.",
     )
@@ -120,7 +194,7 @@ class SelectionConfig(_StrictBase):
         " so 'Ġde' rather than ' de' for a byte-level tokenizer.",
     )
     keep_token_ids: list[int] = Field(default_factory=list, description="Literal token ids to keep, e.g. [151643].")
-    keep_token_files: list[Path] = Field(
+    keep_token_files: list[LocalPath] = Field(
         default_factory=list,
         description="Text files with one token per line. Blank lines and '#' comments are ignored.",
     )
@@ -182,13 +256,13 @@ class EmbeddingTrimConfig(_StrictBase):
 class TrimConfig(_StrictBase):
     """Top-level configuration for one trimming run."""
 
-    model: str = Field(
+    model: HubOrLocalPath = Field(
         description="Hub model id or local path whose tokenizer is trimmed, e.g. 'codefuse-ai/F2LLM-v2-160M'."
     )
     revision: str | None = Field(
         default=None, description="Model revision to pin, e.g. a commit sha. Recommended for reproducibility."
     )
-    output_dir: Path = Field(
+    output_dir: LocalPath = Field(
         default=Path("trimmed"),
         description="Directory the trimmed artefacts are written to, e.g. 'trimmed/f2llm-nl'.",
     )
@@ -239,6 +313,29 @@ class TrimConfig(_StrictBase):
     corpus: CorpusConfig = Field(default_factory=CorpusConfig)
     selection: SelectionConfig = Field(default_factory=SelectionConfig)
     embeddings: EmbeddingTrimConfig = Field(default_factory=EmbeddingTrimConfig)
+
+    @model_validator(mode="after")
+    def _check_the_checkpoint_reference(self) -> Self:
+        """Reject a local checkpoint that is not a directory, and a revision that cannot apply.
+
+        `from_pretrained` treats anything that is not a directory as a Hub id, so a
+        mistyped local path comes back as "Repo id must use alphanumeric chars", and a
+        revision next to a local path is ignored without a word. Both are worth catching
+        before a corpus is read.
+        """
+        looks_local = self.model.startswith(("/", "./", "../")) or self.model.count("/") > 1
+        if Path(self.model).is_dir():
+            if self.revision is not None:
+                raise ValueError(
+                    f"model {self.model!r} is a local directory, so revision {self.revision!r} cannot be resolved."
+                    " Drop the revision, or point 'model' at the Hub id you meant to pin"
+                )
+        elif looks_local or Path(self.model).exists():
+            raise ValueError(
+                f"model {self.model!r} looks like a local path but is not a directory. A checkpoint is the"
+                " directory holding config.json and the tokenizer files, not one file inside it"
+            )
+        return self
 
     @model_validator(mode="after")
     def _require_a_selection_source(self) -> Self:

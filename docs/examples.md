@@ -12,6 +12,7 @@ so the body copies straight into your own code.
 | [`03_trim_with_corpus.py`](https://github.com/BramVanroy/trimbed/blob/main/examples/03_trim_with_corpus.py) | The full [`TrimPipeline`][trimbed.pipeline.TrimPipeline] over a corpus, model included |
 | [`04_custom_preset.py`](https://github.com/BramVanroy/trimbed/blob/main/examples/04_custom_preset.py) | Register your own preset with [`register_preset`][trimbed.presets.register_preset] |
 | [`05_low_level_api.py`](https://github.com/BramVanroy/trimbed/blob/main/examples/05_low_level_api.py) | Drive the stages yourself: count, select, trim, verify |
+| [`06_local_corpus.py`](https://github.com/BramVanroy/trimbed/blob/main/examples/06_local_corpus.py) | Count a corpus of local files with a [`DatasetSpec`][trimbed.config.DatasetSpec], offline |
 
 The low-level path is worth a look if you want to slot trimbed into a larger job:
 [`CorpusCounter`][trimbed.counting.CorpusCounter] →

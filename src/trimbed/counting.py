@@ -191,16 +191,53 @@ class CorpusCounter:
         totals.num_documents += seen
         logger.info(f"read {seen:,} documents from {spec.path!r}")
 
-    def _iter_batches(self, spec: DatasetSpec) -> Iterator[list[str]]:
-        """Yield batches of raw texts from one dataset.
+    def _open_dataset(self, spec: DatasetSpec) -> Iterable[dict[str, Any]]:
+        """Open one configured dataset, wherever it lives.
 
         NOTE: self.config.num_proc is ignored in streaming mode and is only used to
         speed up data (down)loading. It is NOT used to parallellize token counting since
         we rely purely on fast tokenizers, which are already highly parallellized.
 
         Args:
-            spec: The dataset to read, e.g. `path="epfml/FineWeb2-HQ"`,
-                `name="nld_Latn"`, `split="train"`.
+            spec: The dataset to read, e.g. `path="epfml/FineWeb2-HQ"`, `name="nld_Latn"`,
+                `split="train"`, or `path="json"` with `data_files="./data/*.jsonl"`.
+
+        Returns:
+            The dataset to iterate over, streamed or in memory.
+
+        Raises:
+            KeyError: If a `save_to_disk` directory holds several splits and the
+                configured one is not among them.
+        """
+        # `datasets` costs about ten seconds to import and only this method needs it,
+        # so just load it here lazily
+        from datasets import DatasetDict, load_dataset, load_from_disk
+
+        if spec.load_from_disk:
+            dataset = load_from_disk(spec.path)
+            if not isinstance(dataset, DatasetDict):
+                return dataset
+            if spec.split not in dataset:
+                raise KeyError(f"{spec.path!r} holds splits {sorted(dataset)}, so there is no {spec.split!r} to read")
+            return dataset[spec.split]
+
+        kwargs: dict[str, Any] = {
+            "split": spec.split,
+            "streaming": spec.streaming,
+            "revision": spec.revision,
+            "data_dir": spec.data_dir,
+            "data_files": spec.data_files,
+        }
+        # `num_proc` is ignored in streaming mode, so don't pass it there or the datasets library complains
+        if not spec.streaming and self.config.num_proc:
+            kwargs["num_proc"] = self.config.num_proc
+        return load_dataset(spec.path, spec.name, **kwargs)
+
+    def _iter_batches(self, spec: DatasetSpec) -> Iterator[list[str]]:
+        """Yield batches of raw texts from one dataset.
+
+        Args:
+            spec: The dataset to read.
 
         Yields:
             Lists of text strings of at most
@@ -211,15 +248,7 @@ class CorpusCounter:
             KeyError: If the configured text column is absent, e.g. the default `"text"`
                 against a dataset whose column is `"content"`.
         """
-        # `datasets` costs about ten seconds to import and only this method needs it,
-        # so just load it here lazily
-        from datasets import load_dataset
-
-        kwargs: dict[str, Any] = {"split": spec.split, "streaming": spec.streaming, "revision": spec.revision}
-        # `num_proc` is ignored in streaming mode, so don't pass it there or the datasets library complains
-        if not spec.streaming and self.config.num_proc:
-            kwargs["num_proc"] = self.config.num_proc
-        dataset = load_dataset(spec.path, spec.name, **kwargs)
+        dataset = self._open_dataset(spec)
 
         batch: list[str] = []
         for index, example in enumerate(dataset):

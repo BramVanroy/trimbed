@@ -35,6 +35,9 @@ corpus:
       name: nld_Latn               # dataset config
       split: train
       text_column: text
+      data_dir: null               # for a loader name, see "Corpora on disk" below
+      data_files: null
+      load_from_disk: false        # true for a directory written by save_to_disk
       streaming: true
       max_samples: 200000
       weight: 1.0                  # multiplier on this corpus' counts
@@ -64,7 +67,44 @@ embeddings:
 
 Every field, with its own description, is in the
 [Config API reference](api/config.md). Each dataset entry is a
-[`DatasetSpec`][trimbed.config.DatasetSpec].
+[`DatasetSpec`][trimbed.config.DatasetSpec]. A leading `~` is expanded in every path,
+including `model`, so `output_dir: ~/trimmed` lands in your home directory rather than in
+a directory literally named `~`.
+
+## Corpora on disk
+
+`path` is the first argument `datasets.load_dataset` takes, so a corpus that never went to
+the Hub is spelled the same way it would be there. Four shapes cover everything:
+
+```yaml
+corpus:
+  datasets:
+    # A Hub dataset.
+    - path: epfml/FineWeb2-HQ
+      name: nld_Latn
+    # A directory of data files, with the loader inferred from the extensions.
+    - path: ./data/dutch
+    # A loader named explicitly, reading the files you point it at. Globs are allowed,
+    # and this is the spelling to use for one file: `path` itself cannot be a file.
+    - path: json
+      data_files: ./data/dutch/*.jsonl
+    # A dataset written by `save_to_disk`, which `load_dataset` cannot read.
+    - path: ./data/prepared
+      load_from_disk: true
+```
+
+`data_dir` is the alternative to `data_files`: it hands the loader a whole directory
+(`path: json` with `data_dir: ./data/dutch`) instead of a file list.
+
+A `save_to_disk` dataset is already built, so it is never streamed, and it takes no
+`name`, `revision`, `data_dir` or `data_files`: there is nothing left to resolve.
+`split` still applies when the directory holds a `DatasetDict`.
+
+The `model` side needs nothing special. A local checkpoint is the directory holding
+`config.json` and the tokenizer files, exactly what `from_pretrained` takes, and
+`sidecar_patterns` are matched against that directory rather than against a Hub listing.
+`revision` only means something for a Hub id, so pinning one next to a local path is an
+error rather than a setting that quietly does nothing.
 
 ## Overriding values
 

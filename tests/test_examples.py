@@ -9,6 +9,7 @@ the suite instead of quietly rotting.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -133,3 +134,19 @@ def test_05_selects_trims_and_verifies_without_writing(local_model, tmp_path):
     assert result.ok
     # Only the checkpoint the fixture wrote; the example itself saves nothing.
     assert [path.name for path in tmp_path.iterdir()] == ["checkpoint"]
+
+
+def test_06_counts_a_corpus_of_local_files(local_model, sample_texts, tmp_path):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "train.jsonl").write_text(
+        "\n".join(json.dumps({"text": text}) for text in sample_texts), encoding="utf-8"
+    )
+
+    report = load_example("06_local_corpus.py").run(local_model, corpus, tmp_path / "out")
+
+    # Nothing was fetched: both the checkpoint and the corpus came off this temp directory.
+    assert report.corpus is not None
+    assert report.corpus.documents == len(sample_texts)
+    assert report.vocabulary.trimmed_size < report.vocabulary.original_size
+    assert (tmp_path / "out" / "tokenizer.json").exists()

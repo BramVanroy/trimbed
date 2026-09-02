@@ -1,3 +1,4 @@
+import json
 from collections import Counter
 
 import pytest
@@ -122,3 +123,54 @@ def test_the_cache_is_written_then_reused(wordpiece, corpus_dataset, monkeypatch
 
     monkeypatch.setattr("datasets.load_dataset", explode)
     assert CorpusCounter(wordpiece, config).count().counts == first.counts
+
+
+@pytest.fixture
+def local_corpus(tmp_path, sample_texts):
+    """A directory of JSON Lines, the shape a corpus usually has before it reaches the Hub."""
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "train.jsonl").write_text(
+        "\n".join(json.dumps({"text": text}) for text in sample_texts), encoding="utf-8"
+    )
+    return corpus
+
+
+@pytest.fixture
+def saved_corpus(tmp_path, sample_texts):
+    """Return a factory writing `sample_texts` with `save_to_disk`, as a Dataset or a DatasetDict."""
+    from datasets import Dataset, DatasetDict
+
+    def save(as_dict: bool) -> str:
+        dataset = Dataset.from_dict({"text": sample_texts})
+        destination = tmp_path / ("saved_dict" if as_dict else "saved")
+        (DatasetDict({"train": dataset}) if as_dict else dataset).save_to_disk(str(destination))
+        return str(destination)
+
+    return save
+
+
+@pytest.mark.parametrize("spelling", ["directory", "data_dir", "data_files"])
+def test_a_local_corpus_is_read_however_it_is_spelled(wordpiece, local_corpus, sample_texts, spelling):
+    # Streaming throughout, so the reader never writes a builder cache next to the test.
+    spec = {
+        "directory": {"path": str(local_corpus)},
+        "data_dir": {"path": "json", "data_dir": str(local_corpus)},
+        "data_files": {"path": "json", "data_files": str(local_corpus / "train.jsonl")},
+    }[spelling]
+    counts = CorpusCounter(wordpiece, CorpusConfig(datasets=[DatasetSpec(**spec)])).count()
+    assert counts.num_documents == len(sample_texts)
+    assert counts.counts[wordpiece.convert_tokens_to_ids("the")] > 0
+
+
+@pytest.mark.parametrize("as_dict", [False, True])
+def test_a_save_to_disk_directory_is_read_with_load_from_disk(wordpiece, saved_corpus, sample_texts, as_dict):
+    spec = DatasetSpec(path=saved_corpus(as_dict), load_from_disk=True)
+    counts = CorpusCounter(wordpiece, CorpusConfig(datasets=[spec])).count()
+    assert counts.num_documents == len(sample_texts)
+
+
+def test_a_missing_split_on_disk_says_which_splits_exist(wordpiece, saved_corpus):
+    spec = DatasetSpec(path=saved_corpus(True), load_from_disk=True, split="validation")
+    with pytest.raises(KeyError, match=r"\['train'\]"):
+        CorpusCounter(wordpiece, CorpusConfig(datasets=[spec])).count()

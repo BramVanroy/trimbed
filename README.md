@@ -86,6 +86,9 @@ rules alone, trimming over a corpus with the model, and registering your own pre
   config and generation config.
 - **It proves its work.** Both tokenizers re-encode sampled texts, and both models can be
   run and compared, before anything is called a success.
+- **Nothing has to come from the Hub.** The checkpoint can be a local directory, and the
+  corpus a directory of JSON Lines, a `json`/`csv`/`parquet` loader pointed at your own
+  files, or a dataset written with `save_to_disk`.
 
 ## Documentation
 
