@@ -205,6 +205,41 @@ def test_the_model_check_compares_the_saved_model_against_the_original(
 
 
 @pytest.mark.torch
+def test_a_corpus_document_longer_than_the_context_is_still_compared(
+    local_tokenizer, tmp_path, monkeypatch, tiny_model_factory
+):
+    from datasets import Dataset
+    from transformers import AutoTokenizer
+
+    # Real corpora are full of documents that are longer than the model's position table,
+    # and the comparison used to hand them to the model whole and crash the whole run.
+    long_document = " ".join(["the cat sat the dog"] * 60)
+    monkeypatch.setattr(
+        "datasets.load_dataset", lambda *args, **kwargs: Dataset.from_dict({"text": [long_document, "the cat sat"]})
+    )
+    tokenizer = AutoTokenizer.from_pretrained(local_tokenizer)
+    model = tiny_model_factory(len(tokenizer), with_head=False)
+    model.save_pretrained(local_tokenizer)
+
+    config = TrimConfig.model_validate(
+        {
+            "model": local_tokenizer,
+            "output_dir": str(tmp_path / "out"),
+            "corpus": {"datasets": [{"path": "fake", "streaming": False}]},
+            "selection": {"min_count": 1},
+            "verify_model_samples": 2,
+            "copy_sidecar_files": False,
+        }
+    )
+    report = TrimPipeline(config).run()
+
+    assert report.model_verification is not None
+    assert report.model_verification.max_length == model.config.max_position_embeddings
+    assert report.model_verification.checked == 2
+    assert report.model_verification.ok
+
+
+@pytest.mark.torch
 def test_the_model_check_can_be_turned_off(config_for, local_tokenizer, tiny_model_factory):
     from transformers import AutoTokenizer
 

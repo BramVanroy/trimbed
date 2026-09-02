@@ -17,6 +17,7 @@ uv run python examples/02_trim_tokenizer_only.py --help
 | [`04_custom_preset.py`](04_custom_preset.py) | Registering your own must-keep rule and using it by name | Hub |
 | [`05_low_level_api.py`](05_low_level_api.py) | Select / trim / verify as separate steps, writing nothing | Hub |
 | [`06_local_corpus.py`](06_local_corpus.py) | A checkpoint and a corpus that both live on disk, no Hub at all | none |
+| [`07_compare_tokenizers.py`](07_compare_tokenizers.py) | Diffing a checkpoint against a trimmed version of it | Hub |
 
 The [configuration guide](https://BramVanroy.github.io/trimbed/latest/configuration/)
 holds the same ideas as YAML, for the `trimbed` command rather than the Python API.

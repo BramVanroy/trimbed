@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 from types import ModuleType
 
-from trimbed.cli import count_tokens, inspect_tokenizer, list_presets, trim_vocab
+from trimbed.cli import compare_tokenizers, count_tokens, inspect_tokenizer, list_presets, trim_vocab
 
 
 # subcommand name -> the module implementing it and the one line `trimbed --help` shows.
@@ -22,6 +22,7 @@ COMMANDS: dict[str, tuple[ModuleType, str]] = {
     "trim": (trim_vocab, "Trim a tokenizer, and optionally its model, and write the result."),
     "count": (count_tokens, "Count the corpus once and cache the frequencies to JSON."),
     "inspect": (inspect_tokenizer, "Describe a tokenizer as JSON, changing nothing."),
+    "compare": (compare_tokenizers, "Diff two tokenizers, e.g. a checkpoint and a trimmed version of it."),
     "presets": (list_presets, "List the registered presets that --keep-preset accepts."),
 }
 

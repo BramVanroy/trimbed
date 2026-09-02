@@ -159,6 +159,8 @@ class ModelVerificationReport(_Base):
         max_logit_diff: The same over the output head's logits, or `None` when the model
             has no head.
         tolerance: The threshold `ok` compares against, e.g. `1e-05`.
+        max_length: How many tokens of each text the models were run on, e.g. `512` for a
+            BERT, or `None` when nothing bounded the length.
     """
 
     checked: int = 0
@@ -166,6 +168,7 @@ class ModelVerificationReport(_Base):
     max_hidden_diff: float = 0.0
     max_logit_diff: float | None = None
     tolerance: float = 1e-5
+    max_length: int | None = None
 
     @property
     def ok(self) -> bool:
@@ -246,9 +249,10 @@ class TrimReport(_Base):
         if self.model_verification is not None:
             model_check = self.model_verification
             logit_diff = "n/a" if model_check.max_logit_diff is None else f"{model_check.max_logit_diff:.3g}"
+            truncation = "" if model_check.max_length is None else f" of {model_check.max_length:,} tokens"
             lines.append(
-                f"model check      {'passed' if model_check.ok else 'FAILED'} on {model_check.checked} texts: "
-                f"max |dh| {model_check.max_hidden_diff:.3g}, max |dlogit| {logit_diff} "
+                f"model check      {'passed' if model_check.ok else 'FAILED'} on {model_check.checked} texts"
+                f"{truncation}: max |dh| {model_check.max_hidden_diff:.3g}, max |dlogit| {logit_diff} "
                 f"(tolerance {model_check.tolerance:g})"
             )
         if self.sidecar_files:

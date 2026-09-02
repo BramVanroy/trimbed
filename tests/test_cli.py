@@ -234,6 +234,56 @@ def test_inspect_needs_something_to_inspect(monkeypatch):
         run(monkeypatch, "inspect")
 
 
+@pytest.fixture
+def trimmed_checkpoint(byte_level_bpe, tmp_path) -> str:
+    """A trimmed copy of the local checkpoint, saved next to it."""
+    from trimbed.spec import TokenizerSpec
+    from trimbed.tokenizer_trim import trim_tokenizer
+
+    spec = TokenizerSpec.from_tokenizer(byte_level_bpe)
+    path = tmp_path / "trimmed-model"
+    trim_tokenizer(byte_level_bpe, spec, spec.structural_ids).tokenizer.save_pretrained(path)
+    return str(path)
+
+
+def test_compare_diffs_two_checkpoints(monkeypatch, local_tokenizer, trimmed_checkpoint, tmp_path, capsys):
+    texts = tmp_path / "samples.txt"
+    texts.write_text("the cat sat\n\nthe dog\n", encoding="utf-8")
+    output = tmp_path / "diff.json"
+
+    run(
+        monkeypatch,
+        "compare",
+        local_tokenizer,
+        trimmed_checkpoint,
+        "--preset",
+        "script:Latin",
+        "--text",
+        "a hat",
+        "--text-file",
+        str(texts),
+        "--examples",
+        "3",
+        "-o",
+        str(output),
+    )
+
+    assert "relation" in capsys.readouterr().out
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["vocabulary"]["is_subset"] is True
+    assert report["encoding"]["checked"] == 3
+    assert len(report["profile"]["removed_examples"]) == 3
+    assert any(preset["name"] == "script:Latin" for preset in report["profile"]["presets"])
+
+
+def test_compare_needs_nothing_but_two_tokenizers(monkeypatch, local_tokenizer, trimmed_checkpoint, capsys, tmp_path):
+    run(monkeypatch, "compare", local_tokenizer, trimmed_checkpoint, "--quiet")
+
+    out = capsys.readouterr().out
+    assert "encoding" not in out
+    assert not list(tmp_path.glob("*.json"))
+
+
 def test_list_presets_prints_the_registry(monkeypatch, capsys):
     from trimbed.presets import describe_presets
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 from importlib.metadata import version
 
 from trimbed.backends import VocabBackend, get_backend, register_backend, supported_model_types
+from trimbed.compare import ComparisonReport, compare_tokenizers
 from trimbed.config import (
     CorpusConfig,
     DatasetSpec,
@@ -39,6 +40,7 @@ __version__ = version("trimbed")
 
 __all__ = [
     "DEFAULT_SIDECAR_PATTERNS",
+    "ComparisonReport",
     "CorpusConfig",
     "CorpusCounter",
     "CorpusCounts",
@@ -59,6 +61,7 @@ __all__ = [
     "VocabBackend",
     "__version__",
     "available_presets",
+    "compare_tokenizers",
     "copy_sidecar_files",
     "get_backend",
     "load_config",

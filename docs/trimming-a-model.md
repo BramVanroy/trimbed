@@ -73,6 +73,13 @@ texts, comparing hidden states and logits against `verify_tolerance`. For an enc
 it primes one decoder step at the model's own `decoder_start_token_id`, which is also what
 puts the trimmed output head into the comparison.
 
+Sample texts are whole corpus documents, which are regularly longer than the context the
+model can take, so both encodings are cut to the same budget: the smaller of the model's
+position table and the tokenizer's `model_max_length`. The report's `max_length` says what
+that came to, and is null for a model that has no such ceiling (a T5, say). Nothing is cut
+for the tokenizer comparison, which never runs a forward pass and is happy with documents
+of any length.
+
 Both return the report models the run serialises:
 [`VerificationReport`][trimbed.report.VerificationReport] and
 [`ModelVerificationReport`][trimbed.report.ModelVerificationReport].

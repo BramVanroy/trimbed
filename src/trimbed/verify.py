@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from trimbed._logging import get_logger
 from trimbed.loading import require_torch
@@ -12,7 +12,7 @@ from trimbed.report import ModelVerificationReport, VerificationReport
 
 if TYPE_CHECKING:
     import torch
-    from transformers import PreTrainedModel, PreTrainedTokenizerFast
+    from transformers import PreTrainedConfig, PreTrainedModel, PreTrainedTokenizerFast
 
     from trimbed.remap import IdRemap
 
@@ -20,6 +20,9 @@ logger = get_logger(__name__)
 
 MAX_REPORTED_FAILURES = 5
 """How many differing samples a verification report quotes before it stops collecting."""
+
+UNSET_MODEL_MAX_LENGTH = 1_000_000
+"""A `model_max_length` this large is transformers' "no maximum" sentinel (about 1e30), not a real context."""
 
 # Covers both a `BatchEncoding` straight from a tokenizer and the plain dict
 type TensorInputs = Mapping[str, torch.Tensor]
@@ -152,6 +155,60 @@ def _outputs_of(model: PreTrainedModel, inputs: TensorInputs) -> tuple[torch.Ten
     return hidden, getattr(outputs, "logits", None)
 
 
+def _positional_limit(config: PreTrainedConfig | None) -> int | None:
+    """Return the longest sequence a config's model can embed positions for.
+
+    A learned absolute position table is a hard ceiling: hand BERT 3,201 tokens and the
+    forward pass raises before there is anything to compare. Relative and rotary
+    positions have no such table, so `max_position_embeddings` is simply absent (T5) and
+    nothing bounds the length. Composite checkpoints keep the value on a sub-config, the
+    same place they keep their token ids.
+
+    Args:
+        config: A `transformers` config, or `None` for an object that has none.
+
+    Returns:
+        The smallest ceiling found, e.g. `512` for a BERT, or `None` when there is none.
+    """
+    limits = []
+    for name in getattr(type(config), "sub_configs", None) or ():
+        nested = _positional_limit(getattr(config, name, None))
+        if nested is not None:
+            limits.append(nested)
+
+    own = getattr(config, "max_position_embeddings", None)
+    if isinstance(own, int) and own > 0:
+        limits.append(own)
+    return min(limits) if limits else None
+
+
+def _verification_length(model: PreTrainedModel, tokenizer: PreTrainedTokenizerFast) -> int | None:
+    """Return how many tokens of a sample text the models are run on.
+
+    Sample texts are whole corpus documents and a corpus document is routinely longer
+    than the context a model can take, so the comparison has to truncate or it crashes on
+    the first long one. Both bounds are consulted because each catches what the other
+    misses: a checkpoint may ship no `model_max_length` at all, while a tokenizer's value
+    accounts for offsets the position table does not advertise (XLM-R reserves two
+    positions, so its 514-row table takes 512 tokens).
+
+    Args:
+        model: The model the texts are run through.
+        tokenizer: The tokenizer that encodes them.
+
+    Returns:
+        The length to truncate to, or `None` when neither the model nor the tokenizer
+        bounds it, as for a T5.
+    """
+    declared = getattr(tokenizer, "model_max_length", None)
+    bounds = [
+        limit
+        for limit in (_positional_limit(getattr(model, "config", None)), declared)
+        if isinstance(limit, int) and 0 < limit < UNSET_MODEL_MAX_LENGTH
+    ]
+    return min(bounds) if bounds else None
+
+
 def verify_model(
     original: PreTrainedModel,
     trimmed: PreTrainedModel,
@@ -176,24 +233,33 @@ def verify_model(
         original_tokenizer: The tokenizer before trimming.
         trimmed_tokenizer: The tokenizer after trimming.
         remap: The mapping applied during the trim.
-        texts: Sample texts to compare on.
+        texts: Sample texts to compare on. Each is truncated to what the model can take,
+            since a corpus document is regularly longer than that.
         tolerance: Largest absolute difference accepted, e.g. `1e-5`. Raise it for a
             model loaded in bfloat16 where accumulated error may be far higher than in float32.
 
     Returns:
-        The largest differences observed, and how many texts they came from.
+        The largest differences observed, how many texts they came from, and the length
+        the texts were cut to.
     """
     torch = require_torch()
 
-    result = ModelVerificationReport(tolerance=tolerance)
+    max_length = _verification_length(original, original_tokenizer)
+    # Both encodings are cut to the same budget, so a text whose ids mapped one-to-one
+    # still does and one that did not is skipped exactly as it was before.
+    encoding_options: dict[str, Any] = {"return_tensors": "pt"}
+    if max_length is not None:
+        encoding_options |= {"truncation": True, "max_length": max_length}
+
+    result = ModelVerificationReport(tolerance=tolerance, max_length=max_length)
     index = torch.tensor(remap.new_to_old, dtype=torch.long)
     original_device = next(original.parameters()).device
     trimmed_device = next(trimmed.parameters()).device
 
     with torch.inference_mode():
         for text in texts:
-            old_inputs = original_tokenizer(text, return_tensors="pt")
-            new_inputs = trimmed_tokenizer(text, return_tensors="pt")
+            old_inputs = original_tokenizer(text, **encoding_options)
+            new_inputs = trimmed_tokenizer(text, **encoding_options)
             if remap.map_sequence(old_inputs["input_ids"][0].tolist()) != new_inputs["input_ids"][0].tolist():
                 result.skipped += 1
                 continue
@@ -208,8 +274,9 @@ def verify_model(
                 difference = _max_diff(gathered, new_logits[..., : len(remap)])
                 result.max_logit_diff = max(result.max_logit_diff or 0.0, difference)
 
+    truncation = "" if max_length is None else f" (truncated to {max_length:,} tokens)"
     logger.info(
-        f"model verification: {result.checked:,} texts, max hidden difference {result.max_hidden_diff:.3g},"
+        f"model verification: {result.checked:,} texts{truncation}, max hidden difference {result.max_hidden_diff:.3g},"
         f" max logit difference {'n/a' if result.max_logit_diff is None else f'{result.max_logit_diff:.3g}'}"
         f" (tolerance {tolerance:g})"
     )

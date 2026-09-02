@@ -90,6 +90,15 @@ def test_render_calls_out_a_failed_model_check():
     assert "max |dlogit| n/a" in rendered
 
 
+def test_render_names_the_length_the_model_check_ran_on():
+    report = make_report(
+        model_verification=ModelVerificationReport(checked=8, max_hidden_diff=1e-7, tolerance=1e-5, max_length=512),
+    )
+
+    # A document longer than the context is cut, and the report says how far.
+    assert "model check      passed on 8 texts of 512 tokens:" in report.render()
+
+
 def test_length_ratio_without_tokens_is_one():
     assert VerificationReport(checked=0, identical=0, equivalent_text=0).length_ratio == 1.0
 

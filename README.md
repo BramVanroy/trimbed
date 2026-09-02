@@ -35,8 +35,8 @@ From a git clone the above would be `uv sync`, `uv sync --extra model` and
 ## Quickstart
 
 Installing the package comes with the `trimbed` command, which is the main entrypoint
-for users. It has a number of subcommands: `trim`, `count`, `inspect` and `presets`.
-`trimbed --help` lists them.
+for users. It has a number of subcommands: `trim`, `count`, `inspect`, `compare` and
+`presets`. `trimbed --help` lists them.
 
 If you have only cloned the repository, `python -m trimbed.cli` works too.
 
@@ -49,6 +49,9 @@ trimbed trim --config my_config.yaml
 
 # Same config but overridden one value and nothing written (dry-run)
 trimbed trim --config my_config.yaml --dry-run selection.top_k=30000
+
+# What did somebody else's trim actually leave behind?
+trimbed compare intfloat/multilingual-e5-small clips/e5-small-trm-nl
 
 # Or without a config, keeping a preset
 # (only all alphanumeric tokens in the vocab are kept),
@@ -68,7 +71,8 @@ print(report.render())
 ```
 
 [`examples/`](examples/) has a few Python examples: inspecting a tokenizer, trimming from
-rules alone, trimming over a corpus with the model, and registering your own preset.
+rules alone, trimming over a corpus with the model, registering your own preset, and
+diffing a checkpoint against a trimmed version of it.
 
 ## What it does
 
@@ -86,6 +90,10 @@ rules alone, trimming over a corpus with the model, and registering your own pre
   config and generation config.
 - **It proves its work.** Both tokenizers re-encode sampled texts, and both models can be
   run and compared, before anything is called a success.
+- **Somebody else's trim can be audited too.** `trimbed compare` diffs two tokenizers:
+  whether the smaller one really is the larger one renumbered in place, what survived of
+  the structural tokens, the presets and each Unicode script, and what the same text now
+  costs in tokens.
 - **Nothing has to come from the Hub.** The checkpoint can be a local directory, and the
   corpus a directory of JSON Lines, a `json`/`csv`/`parquet` loader pointed at your own
   files, or a dataset written with `save_to_disk`.

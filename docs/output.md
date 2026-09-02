@@ -25,7 +25,7 @@ corpus           200,000 docs, 91,204,331 tokens, 99.9612% covered by the kept v
 architecture     Qwen3Model
 embeddings       151,936 -> 32,448 rows, 122,355,712 of 160,384,000 parameters removed (76.3%)
 verification     512/512 identical, 512/512 decode-equivalent, 1.0004x tokens
-model check      passed on 8 texts: max |dh| 2.38e-07, max |dlogit| n/a (tolerance 1e-05)
+model check      passed on 8 texts of 40,960 tokens: max |dh| 2.38e-07, max |dlogit| n/a (tolerance 1e-05)
 kept by          chat_template=41, corpus=32,004, dependency=126, structural=282
 output           trimmed/f2llm-nl
 ```

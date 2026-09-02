@@ -150,3 +150,19 @@ def test_06_counts_a_corpus_of_local_files(local_model, sample_texts, tmp_path):
     assert report.corpus.documents == len(sample_texts)
     assert report.vocabulary.trimmed_size < report.vocabulary.original_size
     assert (tmp_path / "out" / "tokenizer.json").exists()
+
+
+def test_07_compares_a_checkpoint_with_a_trim_of_it(local_model, wordpiece, tmp_path, capsys):
+    from trimbed.spec import TokenizerSpec
+    from trimbed.tokenizer_trim import trim_tokenizer
+
+    spec = TokenizerSpec.from_tokenizer(wordpiece)
+    trimmed = tmp_path / "trimmed"
+    trim_tokenizer(wordpiece, spec, spec.structural_ids).tokenizer.save_pretrained(trimmed)
+
+    report = load_example("07_compare_tokenizers.py").run(local_model, str(trimmed))
+
+    assert report.vocabulary.is_subset
+    assert report.vocabulary.order_preserved
+    assert report.encoding.checked == len(load_example("07_compare_tokenizers.py").TEXTS)
+    assert "vocabulary" in capsys.readouterr().out

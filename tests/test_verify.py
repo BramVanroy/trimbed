@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+from typing import ClassVar
+
 import pytest
 
 from trimbed.config import SelectionConfig
@@ -7,7 +10,7 @@ from trimbed.report import VerificationReport
 from trimbed.selection import select_tokens
 from trimbed.spec import TokenizerSpec
 from trimbed.tokenizer_trim import trim_tokenizer
-from trimbed.verify import verify_model, verify_tokenizer
+from trimbed.verify import UNSET_MODEL_MAX_LENGTH, _verification_length, verify_model, verify_tokenizer
 
 
 def _trim_for(tokenizer, texts, config=None):
@@ -77,6 +80,54 @@ def test_dropped_merges_show_up_as_a_longer_encoding(byte_level_bpe, sample_text
     assert result.trimmed_tokens > result.original_tokens
 
 
+class TestVerificationLength:
+    """Working out how much of a sample text both models can be run on."""
+
+    def test_a_position_table_is_the_ceiling(self, byte_level_bpe):
+        from transformers import BertConfig
+
+        model = SimpleNamespace(config=BertConfig(max_position_embeddings=64))
+
+        assert _verification_length(model, byte_level_bpe) == 64
+
+    def test_the_tokenizer_wins_when_it_is_stricter(self, byte_level_bpe):
+        from transformers import BertConfig
+
+        # XLM-R is exactly this shape: 514 position rows of which the tokenizer only ever
+        # fills 512, because the first two are reserved.
+        byte_level_bpe.model_max_length = 512
+        model = SimpleNamespace(config=BertConfig(max_position_embeddings=514))
+
+        assert _verification_length(model, byte_level_bpe) == 512
+
+    def test_the_unset_sentinel_is_not_a_length(self, byte_level_bpe):
+        # transformers spells "this tokenizer declares no maximum" as roughly 1e30.
+        assert byte_level_bpe.model_max_length > UNSET_MODEL_MAX_LENGTH
+
+        assert _verification_length(SimpleNamespace(config=None), byte_level_bpe) is None
+
+    def test_relative_positions_have_no_ceiling(self, byte_level_bpe):
+        from transformers import T5Config
+
+        # A T5 has no position table at all, so there is nothing to truncate to.
+        assert _verification_length(SimpleNamespace(config=T5Config()), byte_level_bpe) is None
+
+    def test_a_ceiling_on_a_sub_config_still_counts(self, byte_level_bpe):
+        from transformers import PretrainedConfig
+
+        class TextConfig(PretrainedConfig):
+            pass
+
+        class CompositeConfig(PretrainedConfig):
+            sub_configs: ClassVar = {"vision_config": TextConfig, "text_config": TextConfig}
+
+        config = CompositeConfig()
+        config.vision_config = None
+        config.text_config = TextConfig(max_position_embeddings=48)
+
+        assert _verification_length(SimpleNamespace(config=config), byte_level_bpe) == 48
+
+
 class TestModelVerification:
     """Running both models over the same texts, which is what proves the gather index."""
 
@@ -142,6 +193,33 @@ class TestModelVerification:
         assert result.max_logit_diff is None
         assert result.ok
 
+    @pytest.fixture
+    def long_text(self) -> str:
+        """A document far longer than the tiny model's 64-row position table.
+
+        Built out of the fixture corpus's own words, so every token it uses survives the
+        trim and the comparison has no second reason to skip it.
+        """
+        return " ".join(["the cat sat the dog"] * 60)
+
+    @pytest.mark.torch
+    def test_a_text_longer_than_the_context_is_truncated(self, byte_level_bpe, long_text, trimmed_pair):
+        original_model, trimmed_model, trimmed = trimmed_pair
+        limit = original_model.config.max_position_embeddings
+        # A corpus document is regularly longer than the context, and a learned position
+        # table has no row to put the extra tokens on: the forward pass raises before
+        # anything can be compared.
+        assert len(byte_level_bpe(long_text).input_ids) > limit
+
+        result = verify_model(
+            original_model, trimmed_model, byte_level_bpe, trimmed.tokenizer, trimmed.remap, [long_text]
+        )
+
+        assert result.max_length == limit
+        assert result.checked == 1
+        assert result.skipped == 0
+        assert result.ok
+
     @pytest.mark.torch
     def test_texts_that_no_longer_map_one_to_one_are_skipped(
         self, byte_level_bpe, sample_texts, tiny_model_factory, trimmed_pair
@@ -183,6 +261,21 @@ class TestModelVerification:
         # half the trim actually resizes) would never be compared.
         assert result.checked == len(sample_texts)
         assert result.max_logit_diff is not None
+        assert result.ok
+
+    @pytest.mark.torch
+    def test_a_model_without_a_position_table_reads_the_whole_text(
+        self, byte_level_bpe, long_text, trimmed_seq2seq_pair
+    ):
+        original_model, trimmed_model, trimmed = trimmed_seq2seq_pair
+
+        result = verify_model(
+            original_model, trimmed_model, byte_level_bpe, trimmed.tokenizer, trimmed.remap, [long_text]
+        )
+
+        # Relative attention takes any length, so cutting the text would only weaken the check.
+        assert result.max_length is None
+        assert result.checked == 1
         assert result.ok
 
     @pytest.mark.torch

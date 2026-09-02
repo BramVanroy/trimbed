@@ -187,6 +187,7 @@ nav:
           - Spec: api/spec.md
           - Selection: api/selection.md
           - Presets: api/presets.md
+          - Compare: api/compare.md
           - Counting: api/counting.md
           - Tokenizer trim: api/tokenizer_trim.md
           - Byte level: api/bytelevel.md
@@ -208,5 +209,6 @@ nav:
           - trim: api/cli/trim.md
           - count: api/cli/count.md
           - inspect: api/cli/inspect.md
+          - compare: api/cli/compare.md
           - presets: api/cli/presets.md
       - Exceptions: api/exceptions.md
