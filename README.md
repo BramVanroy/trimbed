@@ -105,7 +105,7 @@ rules alone, trimming over a corpus with the model, and registering your own pre
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: `make style`, `make test` and
-`make build-docs` before you push.
+`make build-docs` before you push (or just register the pre-commit hooks).
 
 ## Acknowledegments
 
